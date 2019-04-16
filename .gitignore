@@ -3,3 +3,5 @@ old-models/
 data/
 *.pth
 *.pth
+__pycache__/
+.ipynb_checkpoints/

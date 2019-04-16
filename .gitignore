@@ -1,2 +1,5 @@
 
 old-models/
+data/
+*.pth
+*.pth

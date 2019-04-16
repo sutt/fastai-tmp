@@ -1,5 +1,5 @@
 diff --git a/fastai/callbacks/csv_logger.py b/fastai/callbacks/csv_logger.py
-index df68ea80d14780ca734f32d86b17ead1a26468ee..b87cbb5471638a790bb2b13da9459b6007f2159f 100644
+index df68ea80d14780ca734f32d86b17ead1a26468ee..c933dcd157626f26b6ee1c3eb54230c4e23e65f5 100644
 --- a/fastai/callbacks/csv_logger.py
 +++ b/fastai/callbacks/csv_logger.py
 @@ -4,6 +4,8 @@ from ..torch_core import *
@@ -15,7 +15,7 @@ index df68ea80d14780ca734f32d86b17ead1a26468ee..b87cbb5471638a790bb2b13da9459b60
      def __init__(self, learn:Learner, filename: str = 'history', append: bool = False): 
          super().__init__(learn)
          self.filename,self.path,self.append = filename,self.learn.path/f'{filename}.csv',append
-+        self.add_time=True
++        self.add_time = True
  
      def read_logged_file(self):  
          "Read the content of saved file"
@@ -24,7 +24,7 @@ index df68ea80d14780ca734f32d86b17ead1a26468ee..b87cbb5471638a790bb2b13da9459b60
          self.path.parent.mkdir(parents=True, exist_ok=True)      
          self.file = self.path.open('a') if self.append else self.path.open('w')
 -        self.file.write(','.join(self.learn.recorder.names[:-1]) + '\n')
-+        self.file.write(','.join(self.learn.recorder.names[:]) + '\n')
++        self.file.write(','.join(self.learn.recorder.names[:(None if self.add_time else -1)]) + '\n')
 +
 +    def on_epoch_begin(self, **kwargs:Any)->None:
 +        if self.add_time: self.start_epoch = time()

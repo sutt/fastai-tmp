@@ -39,44 +39,93 @@ def clean_preds(pred_pts):
     pass
 
 
-def pred_compare(data, learn, size=(216, 324), i=None, b_print=False):
+class MultiIp:
+
+    ''' for displaying multiple sets of ImagePoints 
+
+        univ_p = {'marker':'o', 's':100}
+
+        mip = MultiIp(list_ips=[ip1, ip2], 
+                      list_params=[{'c':'y', **univ_p, },
+                                   {'c':'r', **univ_p, }
+                                  ]
+                    )
+    
+    '''
+
+    def __init__(self, list_ips, list_params=[]):
+        self.ips = list_ips
+        self.params = list_params
+    
+    def show(self, ax, **kwargs):
+        kwargs_save = kwargs.copy()
+        for _ip, _param in zip(self.ips, self.params):
+            kwargs = {**_param, **kwargs_save}
+            _ip.show(ax, **kwargs)
+
+
+def pred_compare(datasets, learners, size=(216, 324), i=None, b_print=False
+                ,b_one_image=True):
+
+    ''' 
+        visually compare perf of different learners on same scoring image
+
+    '''
     
     if i is None:
-        i = np.random.randint(0, len(data.valid_dl.x.items) - 1)
+        i = np.random.randint(0, len(datasets[0].valid_dl.x.items) - 1)
 
-    fn =  data.valid_dl.x.items[i]
-    img = data.valid_dl.x.get(i)
-    truth_pts = data.valid_dl.y.items[i]
-
-    pred_pts = learn.predict(img)  #outputs tuple(ImgPts obj, data)
-    # pred_pts2 = learn2.predict(img)  #outputs tuple(ImgPts obj, data)
-    scaled_pred_pts = scaled_pts(pred_pts[0])
-    # scaled_pred_pts2 = scaled_pts(pred_pts2[0])
-
-    flip_pts = tensor([[e[1],e[0]] for e in list(scaled_pred_pts)])
+    fn = datasets[0].valid_dl.x.items[i]
+    for _dataset in datasets:
+        assert fn == _dataset.valid_dl.x.items[i]  # you're comparing diff imgs; stop
+    
+    img = datasets[0].valid_dl.x.get(i)
+    
+    pred_pts, truth_pts = [], []
+    for _dataset, _learner in zip(datasets, learners):
+        pred_pts.append( _learner.predict(img)  )  #outputs tuple(ImgPts obj, data)
+        truth_pts = _dataset.valid_dl.y.items[i]
+    
+    scaled_pred_pts = [scaled_pts(_pts[0]) for _pts in pred_pts]
+    
+    flip_pts = [tensor([[e[1],e[0]] for e in list(_pts)])
+                for _pts in scaled_pred_pts]
 
     img2 = img.clone()
     img2.resize(size=(3,*size))
+    
 
     if b_print:
-        print(i, fn.name)
-        # print(truth_pts); print('----')
-        # print(scaled_pred_pts) #TODO - put on same terms as ground-truth, round
-        # print(flip_pts)
+        pass
+        #TODO - error amount
+        #TODO - is get_ip(img or img2, pts)?
+        # y=get_ip(img, truth_pts)
+        #   y=get_ip(img2, scaled_pred_pts)
 
-    #TODO - is get_ip(img or img2, pts)?
 
-    img2.show( 
-              # y=get_ip(img, truth_pts)
-            #   y=get_ip(img2, scaled_pred_pts)
-              y=get_ip(img2, flip_pts)
-             ,figsize=(10, 10)
-             ,c='y' ,marker='o', s=100
-            )
+    if b_one_image:
+        
+        univ_p = {'marker':'o', 's':100}
 
-    # img2.show( 
-    #           # y=get_ip(img, truth_pts)
-    #           y=get_ip(img2, scaled_pred_pts2)
-    #          ,figsize=(10, 10)
-    #          ,c='y' ,marker='o', s=100
-    #         )
+        mip = MultiIp(list_ips=[get_ip(img2, _pt) for _pt in flip_pts], 
+                      list_params=[{'c':'y', **univ_p, },
+                                   {'c':'r', **univ_p, }
+                                  ]
+                    )
+
+        img2.show( 
+                 y=mip
+                ,title=(str(i) + ' - ' + fn.name)
+                ,figsize=(10, 10)
+                )
+
+    else:
+
+        for _pts in flip_pts:
+
+            img2.show( 
+                    y=get_ip(img2, _pts)
+                    ,title = str(i) + ' - ' + fn.name
+                    ,figsize=(10, 10)
+                    ,c='y' ,marker='o', s=100
+                    )

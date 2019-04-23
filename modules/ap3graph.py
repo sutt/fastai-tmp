@@ -42,30 +42,79 @@ def clean_preds(pred_pts):
 class MultiIp:
 
     ''' for displaying multiple sets of ImagePoints 
-
-        univ_p = {'marker':'o', 's':100}
-
-        mip = MultiIp(list_ips=[ip1, ip2], 
-                      list_params=[{'c':'y', **univ_p, },
-                                   {'c':'r', **univ_p, }
-                                  ]
-                    )
-    
+        see example notebook here: TODO
     '''
 
-    def __init__(self, list_ips, list_params=[]):
-        self.ips = list_ips
+    def __init__(self, list_ips, list_params=[], labels=None, legend=None, **kwargs):
+        ''' required input: list_ips - list of ImagePoint object(s)
+            optional input: list_params - list of dict(s);        len=len(list_ips)
+                            legend - true, false, or list of str  len=len(list_ip))
+                            labels - true, false, or list of str  len=list_ips[0].shape[0]
+                            label_offset - int                    default=3
+                            label_enumerate - bool                default=false
+        '''
+        self.ips =    list_ips
         self.params = list_params
-    
+        
+        # if labels/legend is False or not specified, feature is off
+        # if its passed True, feature is on with default titling strategy
+        # if its passed a list of string, feature is on with that list's titling strategy
+        self.b_legend =   legend if isinstance(legend, bool) else (legend is not None)
+        self.d_legend =   None if isinstance(legend, bool) else legend
+        self.b_labels =   labels if isinstance(labels, bool) else (labels is not None)
+        self.d_labels =   None if isinstance(labels, bool) else labels
+        
+        # extra args
+        self.label_offset =     kwargs.get('label_offset', 3)
+        self.label_enumerate =  kwargs.get('label_enumerate', False)
+        
     def show(self, ax, **kwargs):
-        kwargs_save = kwargs.copy()
-        for _ip, _param in zip(self.ips, self.params):
-            kwargs = {**_param, **kwargs_save}
-            _ip.show(ax, **kwargs)
+    # show(self, ax:plt.Axes=None, figsize:tuple=(3,3), title:Optional[str]=None, hide_axis:bool=True, **kwargs):
+        ''' when this class is passed as y, this method get called inside Image.show'''
 
+        kwargs_save = kwargs.copy()
+
+        for _i, (_ip, _param) in enumerate(zip(self.ips, self.params)):
+            
+            unique_kwargs = {**_param, **kwargs_save}
+            _ip.show(ax, **unique_kwargs)   #TODO, pass in args like figsize to this call to ImagePoints.show
+
+            if self.b_labels:
+                self._label(ax, _ip, set_index=_i)
+
+        if self.b_legend:
+            if self.d_legend is None:
+                legend = [str(x) for x in range(len(self.ips))]
+            else:
+                legend = self.d_legend
+            ax.legend(legend)
+
+    def _label(self, ax, ips, set_index='?'):
+        '''apply a label to each point, based on params passed-in during init'''
+        
+        # same proc as ImagePoints.show() + offset so labels are centered in marker
+        pnts = scale_flow(FlowField(ips.size, ips.data), to_unit=False).flow.flip(1)
+        pnts[:,0] = pnts[:,0].sub_(self.label_offset)
+        pnts[:,1] = pnts[:,1].add_(self.label_offset)
+        pnts = pnts.tolist()
+        
+        for _ptindex, _pt in enumerate(pnts):
+            
+            # decide the labelling strategy
+            if self.d_labels is not None:
+                point_label = self.d_labels[_ptindex]
+            elif self.label_enumerate:
+                point_label = _ptindex    
+            else:
+                point_label = set_index
+            point_label = str(point_label)
+            
+            ax.annotate(point_label, _pt)
+
+    
 
 def pred_compare(datasets, learners, size=(216, 324), i=None, b_print=False
-                ,b_one_image=True):
+                ,b_one_image=True, labels=False, legend=False):
 
     ''' 
         visually compare perf of different learners on same scoring image
@@ -110,7 +159,9 @@ def pred_compare(datasets, learners, size=(216, 324), i=None, b_print=False
         mip = MultiIp(list_ips=[get_ip(img2, _pt) for _pt in flip_pts], 
                       list_params=[{'c':'y', **univ_p, },
                                    {'c':'r', **univ_p, }
-                                  ]
+                                  ],
+                      labels=labels,
+                      legend=legend,
                     )
 
         img2.show( 

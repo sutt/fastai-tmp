@@ -41,14 +41,14 @@ def clean_preds(pred_pts):
 
 class MultiIp:
 
-    ''' for displaying multiple sets of ImagePoints 
+    ''' for displaying multiple sets of ImagePoints with different styling params
         see example notebook here: TODO
     '''
 
     def __init__(self, list_ips, list_params=[], labels=None, legend=None, **kwargs):
         ''' required input: list_ips - list of ImagePoint object(s)
             optional input: list_params - list of dict(s);        len=len(list_ips)
-                            legend - true, false, or list of str  len=len(list_ip))
+                            legend - true, false, or list of str  len=len(list_ips))
                             labels - true, false, or list of str  len=list_ips[0].shape[0]
                             label_offset - int                    default=3
                             label_enumerate - bool                default=false
@@ -58,7 +58,7 @@ class MultiIp:
         
         # if labels/legend is False or not specified, feature is off
         # if its passed True, feature is on with default titling strategy
-        # if its passed a list of string, feature is on with that list's titling strategy
+        # if its passed a list of strings, feature is on with that list as titling strategy
         self.b_legend =   legend if isinstance(legend, bool) else (legend is not None)
         self.d_legend =   None if isinstance(legend, bool) else legend
         self.b_labels =   labels if isinstance(labels, bool) else (labels is not None)
@@ -67,6 +67,7 @@ class MultiIp:
         # extra args
         self.label_offset =     kwargs.get('label_offset', 3)
         self.label_enumerate =  kwargs.get('label_enumerate', False)
+        self.annotate_args =    kwargs.get('annotate_args', {})
         
     def show(self, ax, **kwargs):
     # show(self, ax:plt.Axes=None, figsize:tuple=(3,3), title:Optional[str]=None, hide_axis:bool=True, **kwargs):
@@ -83,10 +84,8 @@ class MultiIp:
                 self._label(ax, _ip, set_index=_i)
 
         if self.b_legend:
-            if self.d_legend is None:
-                legend = [str(x) for x in range(len(self.ips))]
-            else:
-                legend = self.d_legend
+            legend = (self.d_legend if self.d_legend is not None else 
+                      [str(i) for i,v in enumerate(self.ips)])
             ax.legend(legend)
 
     def _label(self, ax, ips, set_index='?'):
@@ -109,7 +108,7 @@ class MultiIp:
                 point_label = set_index
             point_label = str(point_label)
             
-            ax.annotate(point_label, _pt)
+            ax.annotate(point_label, _pt, **self.annotate_args)
 
     
 

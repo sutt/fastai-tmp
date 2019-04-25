@@ -4,3 +4,5 @@ data/
 *.pth
 *.pth
 __pycache__/
+.ipynb_checkpoints/
+Untitle*.ipynb

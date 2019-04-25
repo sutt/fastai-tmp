@@ -3,3 +3,4 @@ old-models/
 data/
 *.pth
 *.pth
+__pycache__/

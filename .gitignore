@@ -6,3 +6,5 @@ data/
 __pycache__/
 .ipynb_checkpoints/
 Untitle*.ipynb
+misc-data/
+new-models/

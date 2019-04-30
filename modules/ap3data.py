@@ -1,11 +1,41 @@
 import os, sys, json, copy, random
 import pandas as pd
 import numpy as np
+import fastai
 from fastai.vision import *
 from fastai.utils.mem import  gpu_mem_get_free_no_cache
 
 ### setup data building environment -------------------------------------
 
+def fastai_version(min_version=None, allow_dev=True, print_minor_v=False):
+    ''' check fastai version we're using; default return True if min_version met'''
+    try:
+        v = fastai.__version__
+    except:
+        try:
+            import fastai
+            v = fastai.__version__
+        except:
+            print('failed to extract fastai.__version__')
+            return False
+
+    major_v, middle_v, minor_v, *misc_v = v.split('.')
+
+    if print_minor_v:
+        print(major_v, middle_v, minor_v, *misc_v)
+        return
+
+    if not(allow_dev):
+        if 'dev' in misc_v[0]:
+            return False
+
+    if int(minor_v) >= min_version:
+        return True
+
+    return False
+
+print('heres the module version:...')
+fastai_version(print_minor_v=True)
 
 def is_local(name='DESKTOP-5VTC260'):
     sys_vars = os.environ
@@ -113,9 +143,10 @@ def build_data(
                 batch_size = None,
                 size = None,
                 num_workers = None,
-                bypass_validation = False,
                 seed = None,
                 valid_pct = None,
+                presort = True,
+                bypass_validation = False,
                 mini_data = False,
                 ):
     ''' reporducible, parameterized module for returning DataBunch '''
@@ -146,6 +177,9 @@ def build_data(
     if valid_pct is not None:
         _valid_pct = valid_pct
 
+    #note: this is only available in fastai version > 1.0.52
+    _presort = presort
+
     # called each time you eneter function
     np.random.seed(_seed)  
 
@@ -155,7 +189,7 @@ def build_data(
 
     data = (PointsItemList.from_folder(raw_fn)
             .filter_by_func(filter_records)
-            .split_by_rand_pct(valid_pct=_valid_pct)
+            .split_by_rand_pct(valid_pct=_valid_pct, seed = _seed)
             .label_from_func(label_points)
             .transform(get_transforms()
                                 ,tfm_y=True
@@ -170,17 +204,20 @@ def build_data(
         return data
     
     try:
-        assert isinstance(data, ImageDataBunch)
-        assert len(data.train_dl.x.items) == 4662
-        assert len(data.valid_dl.x.items) == 1165
-        assert list(data.valid_dl.y.items[0].shape) == [4,2]
-        assert list(data.valid_dl.x.get(0).shape) == [3, 864, 1296]
-        assert data.num_workers == (0 if os.name == 'nt' else 8)
+        assert isinstance(data, ImageDataBunch),        'bad data type'
+        assert len(data.train_dl.x.items) == 4662,      'bad data-train len'
+        assert len(data.valid_dl.x.items) == 1165,      'bad data-val len'
+        assert list(data.valid_dl.y.items[0].shape) == [4,2], 'bad y dims'
+        assert list(data.valid_dl.x.get(0).shape) == [3, 864, 1296], 'bad x dims'
+        assert data.num_workers == (0 if os.name == 'nt' else 8), 'bad num workers'
         assert str(data.path) == ( 'data/alphapilot/data_training'
                                 if not(b_local) else
                                 '..\\..\\..\\..\\alphapilot\\Data_Training\\Data_Training'
-                                    )
+                                    ), 'bad data path'
+        assert fastai_version(min_version=53), 'bad fastai version'
+        print('all validation pass')
+
     except Exception as e:
-        print(e)
+        print(e.args)
 
     return data

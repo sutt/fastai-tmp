@@ -1,10 +1,13 @@
-
 old-models/
 data/
-*.pth
 *.pth
 __pycache__/
 .ipynb_checkpoints/
 Untitle*.ipynb
 misc-data/
 new-models/
+secrets/
+demo-dogs/
+demo-inode/
+gcloud_cmd_tmp.sh
+scp/

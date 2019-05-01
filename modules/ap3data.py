@@ -4,43 +4,9 @@ import numpy as np
 import fastai
 from fastai.vision import *
 from fastai.utils.mem import  gpu_mem_get_free_no_cache
+from .miscutils import fastai_version, is_local
 
 ### setup data building environment -------------------------------------
-
-def fastai_version(min_version=None, allow_dev=True, print_minor_v=False):
-    ''' check fastai version we're using; default return True if min_version met'''
-    try:
-        v = fastai.__version__
-    except:
-        try:
-            import fastai
-            v = fastai.__version__
-        except:
-            print('failed to extract fastai.__version__')
-            return False
-
-    major_v, middle_v, minor_v, *misc_v = v.split('.')
-
-    if print_minor_v:
-        print(major_v, middle_v, minor_v, *misc_v)
-        return
-
-    if not(allow_dev):
-        if 'dev' in misc_v[0]:
-            return False
-
-    if int(minor_v) >= min_version:
-        return True
-
-    return False
-
-print('heres the module version:...')
-fastai_version(print_minor_v=True)
-
-def is_local(name='DESKTOP-5VTC260'):
-    sys_vars = os.environ
-    return ( sys_vars.get('NAME', '') == name
-             or sys_vars.get('COMPUTERNAME', '') == name)
 
 b_local = is_local()
 b_windows = (os.name=='nt')

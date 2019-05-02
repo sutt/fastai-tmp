@@ -175,13 +175,22 @@ def build_data(
         assert len(data.valid_dl.x.items) == 1165,      'bad data-val len'
         assert list(data.valid_dl.y.items[0].shape) == [4,2], 'bad y dims'
         assert list(data.valid_dl.x.get(0).shape) == [3, 864, 1296], 'bad x dims'
-        assert data.num_workers == (0 if os.name == 'nt' else 8), 'bad num workers'
-        assert str(data.path) == ( 'data/alphapilot/data_training'
-                                if not(b_local) else
-                                '..\\..\\..\\..\\alphapilot\\Data_Training\\Data_Training'
-                                    ), 'bad data path'
+        
+        str_data_path = ('data/alphapilot/data_training' if not(b_local) else
+                        '../../../../alphapilot/Data_Training/Data_Training')
+        
+        assert os.path.samefile( os.path.abspath(data.path),
+                                 os.path.abspath(str_data_path)
+                                ), 'bad data path'
+
+        nw = 8
+        if b_windows: nw = 0
+        if b_local and not(b_windows): nw = 4
+        assert data.num_workers == nw, 'bad num workers'
+
         assert fastai_version(min_version=53), 'bad fastai version'
-        print('all validation pass')
+        
+        print('all validations pass')
 
     except Exception as e:
         print(e.args)

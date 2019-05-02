@@ -33,6 +33,14 @@ def err_to_np(errs, n_pts=8):
 
     return tbl
 
+def get_ip(img,pts): 
+    ''' converts plain tensor representing points to an 
+        ImagePoints obj; useful for inserting into show(y=?)
+    '''
+    return ImagePoints(FlowField(img.size, pts), 
+                       scale=True,  
+                       y_first=True)
+
 class ModelHome:
 
     ''' for re-intializing already trained models '''
@@ -93,12 +101,18 @@ class ModelHome:
             return self.model.predict(self.dataset.train_dl.get(i))[2]
 
     def get_truth(self, i, b_train=False):
+        ''' return truth for item i in validation-set; or from training-set if
+            b_train is True.  
+            truth as 4 by 2 flow tensor
+        '''
         if not(b_train):
             if self.preds is not None:
                 return self.preds[1][i]
         else:
-            #TODO - still wrong
-            return self.dataset.train_dl.y.items[0]
+            demo_img = self.dataset.train_dl.x.get(0)
+            return get_ip(demo_img, self.dataset.train_dl.y.items[i]).data
+
+            
 
     def get_split(self, b_train=False):
         ''' using a command to switch b/w train_dl and valid_dl; default=valid'''

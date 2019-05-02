@@ -81,13 +81,30 @@ class ModelHome:
 
         
 
-    def get_prediction(self, i, ret_time=False):
-        if self.preds is not None:
-            return self.preds[0][i]
+    def get_prediction(self, i, b_train=False):
+        ''' return prediction for item i in validation-set; or from training-set if
+            b_train is True. 
+            prediction as flat tensor flow array
+        '''
+        if not(b_train):
+            if self.preds is not None:
+                return self.preds[0][i]
+        else:
+            return self.model.predict(self.dataset.train_dl.get(i))[2]
 
-    def get_truth(self, i):
-        if self.preds is not None:
-            return self.preds[1][i]
+    def get_truth(self, i, b_train=False):
+        if not(b_train):
+            if self.preds is not None:
+                return self.preds[1][i]
+        else:
+            #TODO - still wrong
+            return self.dataset.train_dl.y.items[0]
+
+    def get_split(self, b_train=False):
+        ''' using a command to switch b/w train_dl and valid_dl; default=valid'''
+        if b_train:
+            return self.dataset.train_dl
+        return self.dataset.valid_dl
 
     def build_preds(self, dest_dir='misc-data', pickle_fn=None):
         ''' run get_preds on validation set; save to pickle '''

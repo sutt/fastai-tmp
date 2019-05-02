@@ -34,6 +34,19 @@ def get_ip(img,pts):
                        scale=True,  
                        y_first=True)
 
+def pts_transform(size, pts):
+    ''' img - a tensor of 3 dims
+        pts - a flat tensor of len 8
+        returns: ImagePoints with size=img.size, data=pts (as 4 by 2)
+    '''
+    
+    pts = pts.reshape([4,2])
+    
+    pts = ImagePoints(FlowField(size=size,flow=pts), scale=False)
+    
+    return pts
+
+
 def clean_preds(pred_pts):
     '''remove out-of-bounds from coords'''
     pass
@@ -179,3 +192,83 @@ def pred_compare(datasets, learners, size=(216, 324), i=None, b_print=False
                     ,figsize=(10, 10)
                     ,c='y' ,marker='o', s=100
                     )
+
+
+
+
+def pred_cmp_viz(list_mh
+                ,i=None
+                ,list_preds=None
+                ,preds_input=None
+                ,b_train=False
+                ,b_print=False
+                ,add_truth=False
+                ,labels=False
+                ,legend=False
+                ):
+
+    ''' 
+        visually compare perf of different learners on same scoring image
+
+        list_mh - list of ModelHome's 
+                  (None if you want to use list_preds)
+        list_preds - list of output[2] from model.predict()
+        preds_input - Tuple(str, img) for fn and img
+
+        [ ] how to get size?  it's in __repr__ for model, but how to access?
+    '''
+    
+    if list_mh is None:
+        
+        # the preds + data already passed in
+        pred_pts = list_preds
+        fn, img = preds_input
+
+    else:
+        
+        # build predictions and img data 
+        data = list_mh[0].get_split(b_train=b_train)
+        
+        if i is None:
+            i = np.random.randint(0, len(data.x.items) - 1)
+
+        fn = data.x.items[i]
+        img = data.x.get(i)
+
+        pred_pts = []
+        for _mh in list_mh:
+            assert fn == _mh.get_split(b_train=b_train).x.items[i]
+            pred_pts.append(_mh.get_prediction(i, b_train=b_train))
+
+    size=(288, 432)  
+    img.resize((3,*size))   #note: new size will not propogate until
+                            # refresh() or show() is called on img
+
+    pred_pts_t = [pts_transform(size, _pts) for _pts in pred_pts]
+    
+    if add_truth:
+        truth_pts = list_mh[0].get_truth(i)
+        pred_pts_t.append(pts_transform(size, truth_pts))
+    
+    #formatting and plotting
+    if isinstance(legend, bool) and legend:
+        legend = [_mh.name for _mh in list_mh]
+        if add_truth: legend += 'truth'
+        legend = [str(x) if x is not None else '?' for x in legend]
+        
+    univ_p = {'marker':'o', 's':100}
+    
+    mip = MultiIp(  list_ips = pred_pts_t, 
+                    list_params = [{'c':'y', **univ_p, },
+                                   {'c':'r', **univ_p, },
+                                   {'c':'g', **univ_p, 's': 30, }
+                                  ],
+                    labels=labels,
+                    legend=legend,
+                )
+
+    img.show( 
+             y=mip
+            ,title=(str(i) + ' - ' + fn.name)
+            ,figsize=(10, 10)
+            )

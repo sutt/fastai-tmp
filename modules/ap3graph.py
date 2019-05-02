@@ -201,7 +201,6 @@ def pred_cmp_viz(list_mh
                 ,list_preds=None
                 ,preds_input=None
                 ,b_train=False
-                ,b_print=False
                 ,add_truth=False
                 ,labels=False
                 ,legend=False
@@ -210,10 +209,16 @@ def pred_cmp_viz(list_mh
     ''' 
         visually compare perf of different learners on same scoring image
 
-        list_mh - list of ModelHome's 
-                  (None if you want to use list_preds)
-        list_preds - list of output[2] from model.predict()
-        preds_input - Tuple(str, img) for fn and img
+        required:
+            list_mh -       list of ModelHome's 
+                            (None if you want to use list_preds)
+        optional:
+            list_preds -    list of output[2] from model.predict()
+            preds_input -   Tuple(str, img) for fn and img
+        extras:
+            b_train -       bool, sample from train_dl, not valid_dl
+            add_truth -     bool, plot ground truth onto img
+            legend -        bool or str, turn on legend, True -> mh.name
 
         [ ] how to get size?  it's in __repr__ for model, but how to access?
     '''
@@ -240,15 +245,16 @@ def pred_cmp_viz(list_mh
             assert fn == _mh.get_split(b_train=b_train).x.items[i]
             pred_pts.append(_mh.get_prediction(i, b_train=b_train))
 
-    size=(288, 432)  
+    size=(288, 432) 
     img.resize((3,*size))   #note: new size will not propogate until
                             # refresh() or show() is called on img
 
     pred_pts_t = [pts_transform(size, _pts) for _pts in pred_pts]
     
     if add_truth:
-        truth_pts = list_mh[0].get_truth(i)
-        pred_pts_t.append(pts_transform(size, truth_pts))
+        truth_flow = list_mh[0].get_truth(i, b_train=b_train)
+        pred_pts_t.append( pts_transform(size, truth_flow))
+        
     
     #formatting and plotting
     if isinstance(legend, bool) and legend:

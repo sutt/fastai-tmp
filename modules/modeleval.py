@@ -282,10 +282,10 @@ class GroundTruth:
         x_sort = [e[0] for e in x_sort]
         x_lo, x_hi = x_sort[:2], x_sort[2:]
         
-        tl = [e for e in range(4) if e in x_lo and e in y_hi][0]
-        tr = [e for e in range(4) if e in x_hi and e in y_hi][0]
-        br = [e for e in range(4) if e in x_hi and e in y_lo][0]
-        bl = [e for e in range(4) if e in x_lo and e in y_lo][0]
+        tl = [e for e in range(4) if e in x_lo and e in y_lo][0]
+        tr = [e for e in range(4) if e in x_hi and e in y_lo][0]
+        br = [e for e in range(4) if e in x_hi and e in y_hi][0]
+        bl = [e for e in range(4) if e in x_lo and e in y_hi][0]
         
         order = (tl, tr, br, bl)
 
@@ -318,6 +318,7 @@ class GroundTruth:
         
         if (ret_all): return tmp
         else: return True
+
     
     def get_interior_size(self):
         ''' calculate rough area of ground truth'''

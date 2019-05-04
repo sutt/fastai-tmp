@@ -5,6 +5,7 @@ import fastai
 from fastai.vision import *
 from fastai.utils.mem import  gpu_mem_get_free_no_cache
 from .miscutils import fastai_version, is_local
+from .modeleval import GroundTruth
 
 ### setup data building environment -------------------------------------
 
@@ -49,6 +50,31 @@ def label_points(fn):
     '''
     p = truth_df[fn.name]
     return tensor([ [float(p[i*2+1]), float(p[i*2+0])] for i in range(4)])
+
+def label_points_correct_order(fn):
+    '''
+        same as label_points but also sorts the points into the same order:
+
+        hard coding the order we want here, roughly 7% are in wrong/ different
+        order in the json table
+        
+        input:  x0,y0,...x3,y3 (list)
+        output: [y0,x0],...[y3,x3] (list) 
+         
+        >use y_first=True in label-load-func
+    '''
+    p = truth_df[fn.name]
+    p = tensor([ [float(p[i*2+1]), float(p[i*2+0])] for i in range(4)])
+
+    order = GroundTruth.get_order(p)
+    if order != (0,1,2,3):
+        
+        p2 = tensor([ p[(0,1,2,3).index(_ord)].tolist() for _ord in order])
+
+    else:
+        p2 = p
+
+    return p2
 
 
 def get_truth_df():
@@ -112,6 +138,7 @@ def build_data(
                 seed = None,
                 valid_pct = None,
                 presort = True,
+                correct_order=True,
                 bypass_validation = False,
                 mini_data = False,
                 ):
@@ -153,10 +180,15 @@ def build_data(
     if mini_data:
         filter_records = filter_mini
 
+    label_func = label_points_correct_order
+    if not(correct_order):
+        label_func = label_points
+
+
     data = (PointsItemList.from_folder(raw_fn)
             .filter_by_func(filter_records)
             .split_by_rand_pct(valid_pct=_valid_pct, seed = _seed)
-            .label_from_func(label_points)
+            .label_from_func(label_func)
             .transform(get_transforms()
                                 ,tfm_y=True
                                 ,size=_size
@@ -189,6 +221,14 @@ def build_data(
         assert data.num_workers == nw, 'bad num workers'
 
         assert fastai_version(min_version=53), 'bad fastai version'
+
+        if correct_order:
+            y = [e for e in data.train_dl.y.items]
+            y.extend([e for e in data.valid_dl.y.items])
+            gt = GroundTruth(y)
+            assert gt.verify_order(), 'points are out of order'
+        else:
+            print('warning - points are not nec in the right order')
         
         print('all validations pass')
 

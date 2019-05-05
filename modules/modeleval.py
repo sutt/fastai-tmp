@@ -194,6 +194,7 @@ class ModelHome:
 
     def build_avg_pred_time(self, n=5):
         ''' perform a prediction n times, take avg of time elpased'''        
+        
         time_tmp = []
         
         for _i in range(n):
@@ -250,29 +251,57 @@ class Residuals:
 
 class GroundTruth:
 
-    ''' do transforms and operations on truth table'''
+    ''' do transforms and operations on truth table:
+            - especially enforcing order on points, which is crucial for imgpoints
+            tasks to train
+            - also for extracting charactersitics like area, viewing angle 
+    '''
 
-    def __init__(self, y_flow, verify_order=False):
+    def __init__(self, y_flow, order_requested=(0,1,2,3), bypass_order=False):
         ''' y_flow - output of get_preds[1], tensor of (n, 4, 2) with y_first'''
+        
+        assert y_flow[0].shape == torch.Size([4,2]), 'input element must in shape (4,2)'
+
         self.y_flow = y_flow
+
+        if bypass_order: return
+
+        self.enforce_order(order_requested=order_requested)
 
         self.order = self.get_order(self.y_flow[0])  
 
-        if verify_order:
-            try:
-                assert self.order_verify(), 'order verified returned False'
-            except:
-                pass
+        d_order_keys = ('tl', 'tr', 'br', 'bl')
+        self.d_order = {k:v for k,v in  zip(d_order_keys, self.order)}
+
+        assert self.verify_order(), 'order verified returned False'
+        
 
     @staticmethod
-    def get_order(truth_vec, y_first=True):
-        ''' use y_flow[0] to deduce order
-            convetion: top left (x1,y1), clockwise around
+    def vec2tbl(vec, n_pts=4):
+        ''' (1 x 8) tensor -> (2 x 4) tensor '''
+        pass
+
+    @staticmethod
+    def tbl2vec(tbl, n_pts):
+        ''' (2 x 4) tensor -> (1 x 8) tensor '''
+        # assert 
+        pass
+    
+    @staticmethod
+    def get_order(truth_tbl, ):
+        ''' return a list of index int's indicating the order enum for each 2-ple 
+             pair along the truth_vec [[y0,x1],...[y3,x3]] 
+            
+            convetion: top left point is enum=0, then clockwise around
+            
+            must be as y_first=True
+
             assumes in true four corners that there are two lo's and two hi's
-            for both x and y...hard to explain here. 
+            for both x and y...hard to explain here when that is violated, 
+            but it is for "the riser of a long staircase"
         '''
 
-        y_vec, x_vec = truth_vec[:,0], truth_vec[:,1]        
+        y_vec, x_vec = truth_tbl[:,0], truth_tbl[:,1]        
 
         y_sort = sorted(enumerate(y_vec), key=lambda e:e[1])
         y_sort = [e[0] for e in y_sort]
@@ -290,6 +319,24 @@ class GroundTruth:
         order = (tl, tr, br, bl)
 
         return order
+
+    @classmethod
+    def mod_order(cls, truth_tbl, order_requested=(0,1,2,3)):
+        '''
+            return truth_tbl (as 4 by 2) in the order specified
+            must be y-first = True
+        '''
+        order = cls.get_order(truth_tbl)
+        
+        if order != order_requested:
+        
+            #note: i don't think this algo works for non-(0,1,2,3) order_requested
+            truth_tbl = tensor([ truth_tbl[(0,1,2,3).index(_ord)].tolist() 
+                                for _ord in order])
+
+
+        return truth_tbl
+
     
     def verify_order(self, ret_all=False):
         ''' verify points position follows the same ordering as 
@@ -319,31 +366,95 @@ class GroundTruth:
         if (ret_all): return tmp
         else: return True
 
-    
-    def get_interior_size(self):
-        ''' calculate rough area of ground truth'''
+    def enforce_order(self, order_requested):
+        ''' update self.y_flow with each element set to order_requested '''
+        new_y_flow = []
         for _record in self.y_flow:
-            
-            v_len = _record / 2
+            new_y_flow.append(self.mod_order(_record, order_requested))
+        self.y_flow = new_y_flow
 
-    def get_perspective_ratio(self, b_vertical=True):
-        ''' compare the two distances; return the ration of small/large'''
+    
+    def get_interior_size(self, i=None):
+        ''' calculate rough area of ground truth
+            return list if i is None, else returns for i'''
         
-        coord_j = ([['y1', 'y4'],['y2', 'y3']] if b_vertical else 
-                   [['x1', 'x4'],['x2', 'x3']])
+        tmp = []
+
+        iter_records = self.y_flow if i is None else [self.y_flow[i]]
+
+        assert self.verify_order(), 'order is not consistent; must fix before this runs'
+        
+        tl, tr, br, bl = (  self.d_order['tl'], 
+                            self.d_order['tr'],
+                            self.d_order['br'],
+                            self.d_order['bl']
+                            )
+        
+        for _record in iter_records:
+
+            #note: order not checked for each record
+            
+            y_left  = _record[bl][0] - _record[tl][0]
+            y_right = _record[br][0] - _record[tr][0]
+            
+            x_top  = _record[tr][1] - _record[tl][1]
+            y_bot  = _record[br][1] - _record[bl][1]
+
+            y = (y_left + y_right) / 2
+            x = (x_top + y_bot) / 2
+
+            area = x*y
+
+            if i is not None:
+                return area
+
+            tmp.append(area)
+
+        # return as list-of-floats, not list-of-tensors
+        tmp = [float(e) for e in tmp]
+
+        return tmp
+
+    def get_perspective_ratio(self, i=None, b_vertical=True, b_mix=False):
+        ''' compare the two distances; return the ration of small/large
+        
+            if b_vertical - compare vert1 vs vert2, else, horiz1 vs horiz2
+            if mix - compare vert1 vs horiz1
+            
+        '''
+        
+        corners = ([['bl', 'tl'],['br', 'tr']] if b_vertical else 
+                   [['tr', 'tl'],['br', 'bl']])
+
+        if b_mix:
+
+            corners = [['bl', 'tl'],['br', 'bl']] 
+                       
+
+        corners = [[self.d_order[e_sub] for e_sub in e] for e in corners]
+
+        xy1, xy2 = (0,0) if b_vertical else (1,1)
+
+        if b_mix: xy1, xy2 = (0,1)
+
+
+        tmp = []
 
         for _i, _yflow in enumerate(self.y_flow):
 
             dsts = [
-                    abs(_yflow[self.order(coord_j[0][0])] -
-                        _yflow[self.order(coord_j[0][1])]
-                    ),
-                    abs(_yflow[self.order(coord_j[1][0])] -
-                        _yflow[self.order(coord_j[1][1])]
-                    ),
+                    _yflow[corners[0][0]][xy1] - _yflow[corners[0][1]][xy1],
+                    _yflow[corners[1][0]][xy2] - _yflow[corners[1][1]][xy2],
                    ]
 
-        return min(dsts) / max(dsts)
+            tmp.append(min(dsts) / max(dsts))
+
+        # return as list-of-floats, not list-of-tensors
+        tmp = [float(e) for e in tmp]
+
+        return tmp
+
+
 
 class Predictions:
 
@@ -351,6 +462,7 @@ class Predictions:
     
     def __init__(self):
         pass
+
 
 class ModelCmp:
 

@@ -61,19 +61,13 @@ def label_points_correct_order(fn):
         input:  x0,y0,...x3,y3 (list)
         output: [y0,x0],...[y3,x3] (list) 
          
-        >use y_first=True in label-load-func
+        >use y_first=True in label-load-func (altho that is default)
     '''
     p = truth_df[fn.name]
     p = tensor([ [float(p[i*2+1]), float(p[i*2+0])] for i in range(4)])
-
-    order = GroundTruth.get_order(p)
-    if order != (0,1,2,3):
-        
-        p2 = tensor([ p[(0,1,2,3).index(_ord)].tolist() for _ord in order])
-
-    else:
-        p2 = p
-
+    
+    p2 = GroundTruth.mod_order(p, order_requested=(0,1,2,3))
+    
     return p2
 
 
